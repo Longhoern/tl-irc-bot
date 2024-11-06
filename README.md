@@ -8,7 +8,9 @@ Configured for TorrentLeech IRC 720p and 1080p freeleech content.
 ## How to get TorrentLeech Login Cookies:
 
 Log into torrentleech.org, open page properties, navigate to storage > cookies > torrentleech.org, copy tluid and tlpass values. **Do not share these values with anyone**.
-<br />
+
+---
+
 Do not run random scripts without auditing first, including the ones in this repo.
 
 Modify the bot as you want. I provide no support.
