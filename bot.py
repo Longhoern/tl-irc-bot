@@ -212,7 +212,7 @@ class TorrentBot(irc.bot.SingleServerIRCBot):
             # Send Discord notification with torrent link
             webhook = DiscordWebhook(
                 url=self.config['discord']['webhook_url'],
-                content=f"New torrent added: {torrent_url}"
+                content=f"📥 New torrent added! {torrent_url}"
             )
             webhook.execute()
             self.logger.info("Sent Discord notification")
