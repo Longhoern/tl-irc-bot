@@ -11,6 +11,7 @@ from pathlib import Path
 import yaml
 from datetime import datetime, timedelta
 import time
+import threading
 
 class TorrentBot(irc.bot.SingleServerIRCBot):
     def __init__(self, config):
@@ -53,16 +54,23 @@ class TorrentBot(irc.bot.SingleServerIRCBot):
         # Initialize session
         self._session = requests.Session()
         
+        # Initialize a dict to track torrents that need rechecking
+        self.pending_rechecks = {}
+        
         # Validate cookies before starting
         if not self.validate_cookies():
             raise Exception("TorrentLeech cookies are invalid or expired")
         
         # Start cookie check thread
         self.should_run = True
-        import threading
         self.cookie_check_thread = threading.Thread(target=self.periodic_cookie_check)
         self.cookie_check_thread.daemon = True
         self.cookie_check_thread.start()
+        
+        # Start recheck monitor thread
+        self.recheck_thread = threading.Thread(target=self.monitor_pending_rechecks)
+        self.recheck_thread.daemon = True
+        self.recheck_thread.start()
 
     def validate_cookies(self):
         """Validate TorrentLeech cookies by making a test request"""
@@ -115,6 +123,34 @@ class TorrentBot(irc.bot.SingleServerIRCBot):
         except Exception as e:
             self.logger.error(f"Error validating cookies: {str(e)}")
             return False
+
+    def monitor_pending_rechecks(self):
+        """Monitor and recheck torrents after delay"""
+        while self.should_run:
+            current_time = time.time()
+            recheck_list = []
+            
+            # Check for torrents that need rechecking
+            for torrent_hash, scheduled_time in list(self.pending_rechecks.items()):
+                if current_time >= scheduled_time:
+                    recheck_list.append(torrent_hash)
+                    del self.pending_rechecks[torrent_hash]
+            
+            # Perform rechecks
+            for torrent_hash in recheck_list:
+                try:
+                    self.logger.info(f"Performing scheduled recheck for torrent: {torrent_hash}")
+                    self.qbt_client.torrents_recheck(torrent_hash)
+                except Exception as e:
+                    self.logger.error(f"Error rechecking torrent {torrent_hash}: {str(e)}")
+            
+            # Sleep for a short interval
+            time.sleep(5)
+
+    def schedule_recheck(self, torrent_hash, delay_seconds=60):
+        """Schedule a torrent for rechecking after specified delay"""
+        self.pending_rechecks[torrent_hash] = time.time() + delay_seconds
+        self.logger.info(f"Scheduled recheck for torrent {torrent_hash} in {delay_seconds} seconds")
 
     def periodic_cookie_check(self):
         """Periodically check cookie validity and send notifications"""
@@ -199,17 +235,23 @@ class TorrentBot(irc.bot.SingleServerIRCBot):
             # Wait a moment for torrent to be added
             time.sleep(2)
             
-            # Get the torrent hash from qBittorrent
+            # Get the newly added torrent hash
             torrents = self.qbt_client.torrents_info(category=category)
+            latest_torrent = None
+            
+            # Find the most recently added torrent in this category
             for torrent in torrents:
-                if torrent.state in ['stalledDL', 'pausedDL', 'missingFiles']:
-                    self.logger.info(f"Force rechecking torrent: {torrent.name}")
-                    self.qbt_client.torrents_recheck(torrent.hash)
+                if not latest_torrent or torrent.added_on > latest_torrent.added_on:
+                    latest_torrent = torrent
+            
+            if latest_torrent:
+                # Schedule a recheck for the new torrent
+                self.schedule_recheck(latest_torrent.hash)
             
             # Construct torrent info URL
             torrent_url = f"https://www.torrentleech.org/torrent/{torrent_id}#torrentinfo"
             
-            # Send Discord notification with torrent link
+            # Send Discord notification with torrent link and emoji
             webhook = DiscordWebhook(
                 url=self.config['discord']['webhook_url'],
                 content=f"📥 New torrent added! {torrent_url}"
@@ -236,6 +278,11 @@ class TorrentBot(irc.bot.SingleServerIRCBot):
     def stop(self):
         """Clean shutdown of the bot"""
         self.should_run = False
+        
+        # Wait for recheck thread to finish
+        if hasattr(self, 'recheck_thread'):
+            self.recheck_thread.join(timeout=5)
+        
         super().die()
 
 def load_config():
