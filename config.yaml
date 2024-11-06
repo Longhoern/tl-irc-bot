@@ -1,0 +1,25 @@
+irc:
+  server: irc.torrentleech.org
+  port: 7021
+  nickname: CHANGME
+  channel: "#tlannounces"
+  announce_bot: "_AnnounceBot_"
+
+torrentleech:
+  cookies:
+    # Add your TorrentLeech cookies here for authentication
+    tluid: "CHANGEME"
+    tlpass: "CHANGME"
+
+qbittorrent:
+  host: "https://qbit.example.com/"
+  port: 443
+  username: "CHANGME"
+  password: "CHANGEME"
+
+discord:
+  webhook_url: "CHANGEME"
+
+paths:
+  download_dir: "/tmp/torrents"
+  log_file: "/path/to/bot.log"
