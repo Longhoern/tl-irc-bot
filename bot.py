@@ -32,10 +32,7 @@ class TorrentBot(irc.bot.SingleServerIRCBot):
         )
         
         # Define search criteria
-        self.search_terms = [
-            {'resolution': '1080p', 'category': 'HD-1080p'},
-            {'resolution': '720p', 'category': 'HD-720p'}
-        ]
+        self.search_terms = ['1080p', '720p']
         
         self.download_path = Path(config['paths']['download_dir'])
         self.download_path.mkdir(parents=True, exist_ok=True)
@@ -185,9 +182,9 @@ class TorrentBot(irc.bot.SingleServerIRCBot):
             return
             
         # Check for any matching resolution
-        for search_term in self.search_terms:
-            if search_term['resolution'] in message:
-                self.logger.info(f"Found matching {search_term['resolution']} freeleech announcement")
+        for resolution in self.search_terms:
+            if resolution in message:
+                self.logger.info(f"Found matching {resolution} freeleech announcement")
                 
                 # Extract torrent ID using regex
                 torrent_link_match = re.search(r'torrentleech\.org/torrent/(\d+)', message)
@@ -196,11 +193,11 @@ class TorrentBot(irc.bot.SingleServerIRCBot):
                     return
                 
                 torrent_id = torrent_link_match.group(1)
-                self.process_torrent(torrent_id, search_term['category'])
+                self.process_torrent(torrent_id)
                 # Break after first match as a torrent won't be both 720p and 1080p
                 break
 
-    def process_torrent(self, torrent_id, category):
+    def process_torrent(self, torrent_id):
         # Validate cookies before attempting download
         if not self.validate_cookies():
             self.logger.error("Skipping torrent download - cookies are invalid")
@@ -225,18 +222,18 @@ class TorrentBot(irc.bot.SingleServerIRCBot):
             torrent_path.write_bytes(response.content)
             self.logger.info(f"Downloaded torrent file to {torrent_path}")
             
-            # Add to qBittorrent with the appropriate category
+            # Add to qBittorrent with freeleech category
             self.qbt_client.torrents_add(
                 torrent_files=str(torrent_path),
-                category=category
+                category="freeleech"
             )
-            self.logger.info(f"Added torrent to qBittorrent with category: {category}")
+            self.logger.info(f"Added torrent to qBittorrent with category: freeleech")
             
             # Wait a moment for torrent to be added
             time.sleep(2)
             
             # Get the newly added torrent hash
-            torrents = self.qbt_client.torrents_info(category=category)
+            torrents = self.qbt_client.torrents_info(category="freeleech")
             latest_torrent = None
             
             # Find the most recently added torrent in this category
