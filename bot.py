@@ -222,12 +222,13 @@ class TorrentBot(irc.bot.SingleServerIRCBot):
             torrent_path.write_bytes(response.content)
             self.logger.info(f"Downloaded torrent file to {torrent_path}")
             
-            # Add to qBittorrent with freeleech category
+            # Add to qBittorrent with freeleech category and ircbot tag
             self.qbt_client.torrents_add(
                 torrent_files=str(torrent_path),
-                category="freeleech"
+                category="freeleech",
+                tags="ircbot"
             )
-            self.logger.info(f"Added torrent to qBittorrent with category: freeleech")
+            self.logger.info(f"Added torrent to qBittorrent with category: freeleech and tag: ircbot")
             
             # Wait a moment for torrent to be added
             time.sleep(2)
